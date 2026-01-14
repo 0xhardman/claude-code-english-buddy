@@ -1,0 +1,16 @@
+{
+  "name": "english-buddy-marketplace",
+  "owner": {
+    "name": "0xhardman",
+    "url": "https://github.com/0xhardman"
+  },
+  "plugins": [
+    {
+      "name": "english-buddy",
+      "source": "./",
+      "description": "Track and improve your English writing with automatic grammar checking, daily/weekly summaries, and progress statistics",
+      "version": "1.0.0",
+      "category": "productivity"
+    }
+  ]
+}

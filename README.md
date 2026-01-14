@@ -10,6 +10,24 @@ A Claude Code plugin that helps you improve your English by automatically checki
 - **macOS Notifications**: Get instant feedback with clickable notifications
 - **Progress Tracking**: Daily, weekly, and all-time statistics with ASCII charts
 
+## Prerequisites
+
+Before installing, complete these steps:
+
+1. **Install Python dependencies**:
+   ```bash
+   pip install anthropic
+   ```
+
+2. **Install terminal-notifier** (optional, for better notifications):
+   ```bash
+   brew install terminal-notifier
+   ```
+
+3. **Set up your API key** (if not already configured):
+   - Set `ANTHROPIC_API_KEY` environment variable, or
+   - Add it to `~/.claude/.env` file
+
 ## Installation
 
 ### Development Mode

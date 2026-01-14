@@ -1,0 +1,16 @@
+{
+  "description": "Grammar checking hook that analyzes English text for errors",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/check_grammar.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

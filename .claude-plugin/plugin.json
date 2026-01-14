@@ -1,0 +1,17 @@
+{
+  "name": "english-buddy",
+  "description": "Track and improve your English writing with automatic grammar checking, daily/weekly summaries, and progress statistics",
+  "version": "1.0.0",
+  "author": {
+    "name": "0xhardman"
+  },
+  "repository": "https://github.com/0xhardman/english-buddy",
+  "license": "MIT",
+  "keywords": [
+    "english",
+    "grammar",
+    "learning",
+    "obsidian",
+    "statistics"
+  ]
+}

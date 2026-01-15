@@ -30,19 +30,20 @@ Before installing, complete these steps:
 
 ## Installation
 
+### From Marketplace (Recommended)
+
+Run this command in Claude Code CLI:
+
+```
+/marketplace add 0xhardman/claude-code-english-buddy
+```
+
 ### Development Mode
 
 ```bash
-claude --plugin-dir ~/code/my/english-buddy
+git clone https://github.com/0xhardman/claude-code-english-buddy.git
+claude --plugin-dir ./claude-code-english-buddy
 ```
-
-### Permanent Installation
-
-```bash
-ln -s ~/code/my/english-buddy ~/.claude/plugins/english-buddy
-```
-
-Then enable in Claude Code settings or restart Claude Code.
 
 ## Commands
 

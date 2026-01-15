@@ -13,6 +13,37 @@ from pathlib import Path
 # Add lib to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
+# Retry queue file path
+RETRY_QUEUE_PATH = Path.home() / ".english-buddy" / "retry_queue.json"
+
+
+def save_to_retry_queue(user_prompt: str, reason: str):
+    """Save a failed message to retry queue for later recall."""
+    RETRY_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Load existing queue
+    queue = []
+    if RETRY_QUEUE_PATH.exists():
+        try:
+            with open(RETRY_QUEUE_PATH, 'r') as f:
+                queue = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            queue = []
+
+    # Add new item
+    queue.append({
+        "prompt": user_prompt,
+        "reason": reason,
+        "timestamp": datetime.now().isoformat()
+    })
+
+    # Keep only last 50 items to prevent unbounded growth
+    queue = queue[-50:]
+
+    # Save queue
+    with open(RETRY_QUEUE_PATH, 'w') as f:
+        json.dump(queue, f, indent=2, ensure_ascii=False)
+
 from language_detect import should_check_grammar
 from claude_api import analyze_grammar
 from obsidian import save_correction as save_to_obsidian
@@ -67,6 +98,12 @@ def main():
         # Call Claude API for analysis
         analysis = analyze_grammar(user_prompt)
 
+        if analysis is None:
+            # API call failed, save to retry queue
+            save_to_retry_queue(user_prompt, "API call failed")
+            print(json.dumps({}), file=sys.stdout)
+            sys.exit(0)
+
         if analysis:
             # Skip if marked as technical content
             if analysis.get('skipped'):
@@ -108,6 +145,12 @@ def main():
     except Exception as e:
         # Log error but don't block the conversation
         print(f"Grammar check error: {e}", file=sys.stderr)
+        # Save to retry queue if we have user_prompt
+        try:
+            if user_prompt:
+                save_to_retry_queue(user_prompt, str(e))
+        except NameError:
+            pass
         print(json.dumps({}), file=sys.stdout)
 
     finally:

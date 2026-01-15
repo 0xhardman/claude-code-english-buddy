@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+"""
+English Buddy CLI - Direct terminal access to English Buddy commands.
+
+Usage:
+    eb recall   - Retry failed grammar checks or re-show last notification
+    eb stats    - Show detailed statistics with charts
+    eb summary  - Show today's summary
+    eb week     - Show weekly progress report
+"""
+
+import sys
+from pathlib import Path
+
+# Add scripts and lib to path
+SCRIPT_DIR = Path(__file__).parent.parent / "scripts"
+sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
+
+
+def show_help():
+    print("""English Buddy CLI
+
+Usage: eb <command>
+
+Commands:
+    recall   Retry failed grammar checks or re-show last notification
+    stats    Show detailed statistics with charts
+    summary  Show today's corrections summary
+    week     Show weekly progress report
+    help     Show this help message
+
+Examples:
+    eb recall
+    eb stats
+""")
+
+
+def main():
+    if len(sys.argv) < 2:
+        show_help()
+        sys.exit(0)
+
+    command = sys.argv[1].lower()
+
+    if command == "help" or command == "--help" or command == "-h":
+        show_help()
+    elif command == "recall":
+        import recall
+        recall.main()
+    elif command == "stats":
+        import stats
+        stats.main()
+    elif command == "summary":
+        import daily_summary
+        daily_summary.main()
+    elif command == "week":
+        import weekly_summary
+        weekly_summary.main()
+    else:
+        print(f"Unknown command: {command}")
+        print("Run 'eb help' for available commands.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

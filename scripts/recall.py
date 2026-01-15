@@ -21,6 +21,8 @@ from db import save_correction as save_to_db
 
 # Retry queue file path
 RETRY_QUEUE_PATH = Path.home() / ".english-buddy" / "retry_queue.json"
+# Last successful check file path
+LAST_CHECK_PATH = Path.home() / ".english-buddy" / "last_check.json"
 
 
 def send_notification(title: str, message: str):
@@ -53,6 +55,17 @@ def send_notification(title: str, message: str):
             pass
     except Exception as e:
         print(f"Notification error: {e}", file=sys.stderr)
+
+
+def load_last_check() -> dict | None:
+    """Load the last successful check."""
+    if not LAST_CHECK_PATH.exists():
+        return None
+    try:
+        with open(LAST_CHECK_PATH, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return None
 
 
 def load_retry_queue() -> list:
@@ -102,8 +115,14 @@ def main():
     queue = load_retry_queue()
 
     if not queue:
-        send_notification("English Buddy Recall", "No failed checks to retry")
-        print("No failed checks in retry queue.")
+        # No failed checks - re-notify the last successful check
+        last_check = load_last_check()
+        if last_check and last_check.get('notification'):
+            send_notification("English Buddy (Recall)", last_check['notification'])
+            print(f"Re-sent last notification: {last_check['notification']}")
+        else:
+            send_notification("English Buddy Recall", "No checks to recall")
+            print("No failed checks and no previous notification to recall.")
         return
 
     print(f"Found {len(queue)} failed check(s) to retry...")

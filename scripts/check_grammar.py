@@ -15,6 +15,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
 # Retry queue file path
 RETRY_QUEUE_PATH = Path.home() / ".english-buddy" / "retry_queue.json"
+# Last successful check file path
+LAST_CHECK_PATH = Path.home() / ".english-buddy" / "last_check.json"
+
+
+def save_last_check(user_prompt: str, analysis: dict, notification_message: str):
+    """Save the last successful check for recall."""
+    LAST_CHECK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(LAST_CHECK_PATH, 'w') as f:
+        json.dump({
+            "prompt": user_prompt,
+            "analysis": analysis,
+            "notification": notification_message,
+            "timestamp": datetime.now().isoformat()
+        }, f, indent=2, ensure_ascii=False)
 
 
 def save_to_retry_queue(user_prompt: str, reason: str):
@@ -137,7 +151,9 @@ def main():
                     notif_parts.append(f"Better: {better}")
 
                 if notif_parts:
-                    send_notification("English Buddy", " | ".join(notif_parts))
+                    notif_message = " | ".join(notif_parts)
+                    send_notification("English Buddy", notif_message)
+                    save_last_check(user_prompt, analysis, notif_message)
 
         # Output empty JSON to stdout (hook response)
         print(json.dumps({}), file=sys.stdout)

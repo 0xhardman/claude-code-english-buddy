@@ -55,12 +55,17 @@ def should_check_grammar(text: str) -> bool:
 
     Returns False if:
     - Text is empty
+    - Text starts with / (slash command)
     - Text is pure Chinese
     - Text is primarily Chinese (>30% Chinese)
     - Text has no English content
     - Text is too short (< 3 words)
     """
     if not text or not text.strip():
+        return False
+
+    # Skip slash commands (e.g., /english-buddy:stats)
+    if text.strip().startswith('/'):
         return False
 
     if is_pure_chinese(text):
@@ -83,13 +88,16 @@ def should_check_grammar(text: str) -> bool:
 if __name__ == "__main__":
     # Test cases
     test_cases = [
-        ("Hello world", True),
+        ("Hello world today", True),  # 3 words, should check
+        ("Hello world", False),  # Too short (< 3 words)
         ("你好世界", False),
         ("I want to improve my English", True),
         ("我想学习 Python", False),  # Primarily Chinese
         ("Hi", False),  # Too short
-        ("npm install", True),
+        ("npm install package", True),  # 3 words
         ("这是一个测试", False),
+        ("/english-buddy:stats", False),  # Slash command
+        ("/commit", False),  # Slash command
     ]
 
     for text, expected in test_cases:

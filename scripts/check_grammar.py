@@ -103,14 +103,15 @@ def main():
         input_data = json.load(sys.stdin)
 
         user_prompt = input_data.get('prompt', '') or input_data.get('user_prompt', '')
+        transcript_path = input_data.get('transcript_path')
 
         # Check if we should analyze this text
         if not should_check_grammar(user_prompt):
             print(json.dumps({}), file=sys.stdout)
             sys.exit(0)
 
-        # Call Claude API for analysis
-        analysis = analyze_grammar(user_prompt)
+        # Call Claude API for analysis (with conversation context)
+        analysis = analyze_grammar(user_prompt, transcript_path=transcript_path)
 
         if analysis is None:
             # API call failed, save to retry queue

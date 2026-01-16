@@ -26,9 +26,13 @@ def load_env_file():
 load_env_file()
 
 
-def analyze_grammar(user_message: str) -> Optional[dict]:
+def analyze_grammar(user_message: str, transcript_path: str = None) -> Optional[dict]:
     """
     Call Claude API to analyze grammar and suggest improvements.
+
+    Args:
+        user_message: The text to check for grammar errors
+        transcript_path: Optional path to conversation transcript for context
 
     Returns dict with keys:
     - has_errors: bool
@@ -49,9 +53,25 @@ def analyze_grammar(user_message: str) -> Optional[dict]:
         print("Error: ANTHROPIC_API_KEY not set", file=__import__('sys').stderr)
         return None
 
+    # Extract conversation context if available
+    context_section = ""
+    if transcript_path:
+        try:
+            from context import extract_context
+            context = extract_context(transcript_path)
+            if context:
+                context_section = f"""
+Conversation context (for better understanding of what the user is discussing):
+{context}
+
+"""
+        except Exception:
+            pass
+
     client = anthropic.Anthropic(api_key=api_key)
 
     prompt = f"""Analyze the following ENGLISH text for grammar errors and suggest better expressions.
+{context_section}
 
 IMPORTANT: This tool is ONLY for checking English grammar. If the text contains Chinese characters or is primarily in Chinese, you MUST set skipped=true and return immediately. Do NOT attempt to correct or analyze Chinese text.
 

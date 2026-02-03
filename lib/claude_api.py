@@ -5,9 +5,25 @@ Uses Claude Haiku for grammar checking.
 
 import json
 import os
-import re
 from pathlib import Path
 from typing import Optional
+
+
+def extract_json(text: str) -> Optional[dict]:
+    """
+    Extract first valid JSON object from text using incremental decoder.
+
+    This is safer than greedy regex as it properly handles nested structures.
+    """
+    decoder = json.JSONDecoder()
+    for i, char in enumerate(text):
+        if char == '{':
+            try:
+                obj, _ = decoder.raw_decode(text[i:])
+                return obj
+            except json.JSONDecodeError:
+                continue
+    return None
 
 
 def load_env_file():
@@ -132,14 +148,8 @@ Rules for normal text:
         try:
             return json.loads(result_text)
         except json.JSONDecodeError:
-            # Try to extract JSON from response
-            match = re.search(r'\{[\s\S]*\}', result_text)
-            if match:
-                try:
-                    return json.loads(match.group())
-                except json.JSONDecodeError:
-                    pass
-            return None
+            # Try to extract JSON from response using safer incremental decoder
+            return extract_json(result_text)
 
     except Exception as e:
         print(f"API error: {e}", file=__import__('sys').stderr)

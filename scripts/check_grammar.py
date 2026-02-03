@@ -5,24 +5,35 @@ Called by UserPromptSubmit hook to check English grammar.
 """
 
 import json
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
 # Add lib to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
-# Retry queue file path
-RETRY_QUEUE_PATH = Path.home() / ".english-buddy" / "retry_queue.json"
-# Last successful check file path
-LAST_CHECK_PATH = Path.home() / ".english-buddy" / "last_check.json"
+from config import get_data_dir, get_obsidian_dir, get_retry_queue_max, is_notification_enabled
+
+
+def get_retry_queue_path() -> Path:
+    """Get the retry queue file path from config."""
+    return get_data_dir() / "retry_queue.json"
+
+
+def get_last_check_path() -> Path:
+    """Get the last check file path from config."""
+    return get_data_dir() / "last_check.json"
 
 
 def save_last_check(user_prompt: str, analysis: dict, notification_message: str):
     """Save the last successful check for recall."""
-    LAST_CHECK_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(LAST_CHECK_PATH, 'w') as f:
+    last_check_path = get_last_check_path()
+    last_check_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(last_check_path, 'w') as f:
         json.dump({
             "prompt": user_prompt,
             "analysis": analysis,
@@ -32,14 +43,15 @@ def save_last_check(user_prompt: str, analysis: dict, notification_message: str)
 
 
 def save_to_retry_queue(user_prompt: str, reason: str):
-    """Save a failed message to retry queue for later recall."""
-    RETRY_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    """Save a failed message to retry queue for later recall using atomic writes."""
+    queue_path = get_retry_queue_path()
+    queue_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Load existing queue
     queue = []
-    if RETRY_QUEUE_PATH.exists():
+    if queue_path.exists():
         try:
-            with open(RETRY_QUEUE_PATH, 'r') as f:
+            with open(queue_path, 'r') as f:
                 queue = json.load(f)
         except (json.JSONDecodeError, IOError):
             queue = []
@@ -51,12 +63,26 @@ def save_to_retry_queue(user_prompt: str, reason: str):
         "timestamp": datetime.now().isoformat()
     })
 
-    # Keep only last 50 items to prevent unbounded growth
-    queue = queue[-50:]
+    # Keep only last N items (from config) to prevent unbounded growth
+    max_items = get_retry_queue_max()
+    queue = queue[-max_items:]
 
-    # Save queue
-    with open(RETRY_QUEUE_PATH, 'w') as f:
-        json.dump(queue, f, indent=2, ensure_ascii=False)
+    # Atomic write: write to temp file first, then rename
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            dir=queue_path.parent,
+            delete=False,
+            suffix='.tmp'
+        ) as tmp:
+            json.dump(queue, tmp, indent=2, ensure_ascii=False)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.rename(tmp.name, queue_path)
+    except Exception:
+        # Fallback to direct write if atomic write fails
+        with open(queue_path, 'w') as f:
+            json.dump(queue, f, indent=2, ensure_ascii=False)
 
 from language_detect import should_check_grammar
 from claude_api import analyze_grammar
@@ -66,34 +92,43 @@ from db import save_correction as save_to_db
 
 def send_notification(title: str, message: str):
     """Send macOS system notification using terminal-notifier."""
-    try:
-        # Get today's Obsidian file path for click action
-        date_str = datetime.now().strftime("%Y-%m-%d")
-        obsidian_file = Path.home() / "obsidian" / "learning" / "english" / f"{date_str}.md"
+    # Check if notifications are enabled in config
+    if not is_notification_enabled():
+        return
 
-        subprocess.run(
-            [
-                '/opt/homebrew/bin/terminal-notifier',
-                '-title', title,
-                '-message', message,
-                '-group', 'english-buddy',
-                '-sender', 'com.apple.Terminal',
-                '-execute', f"open '{obsidian_file}'"
-            ],
-            capture_output=True,
-            timeout=5
-        )
-    except FileNotFoundError:
-        # terminal-notifier not installed, try osascript
+    # Find terminal-notifier in PATH
+    terminal_notifier = shutil.which('terminal-notifier')
+
+    if terminal_notifier:
         try:
-            subprocess.run([
-                'osascript', '-e',
-                f'display notification "{message}" with title "{title}"'
-            ], capture_output=True, timeout=5)
-        except Exception:
-            pass
-    except Exception as e:
-        print(f"Notification error: {e}", file=sys.stderr)
+            # Get today's Obsidian file path for click action
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            obsidian_file = get_obsidian_dir() / f"{date_str}.md"
+
+            subprocess.run(
+                [
+                    terminal_notifier,
+                    '-title', title,
+                    '-message', message,
+                    '-group', 'english-buddy',
+                    '-sender', 'com.apple.Terminal',
+                    '-execute', f"open '{obsidian_file}'"
+                ],
+                capture_output=True,
+                timeout=5
+            )
+            return
+        except Exception as e:
+            print(f"Notification error: {e}", file=sys.stderr)
+
+    # Fallback to osascript
+    try:
+        subprocess.run([
+            'osascript', '-e',
+            f'display notification "{message}" with title "{title}"'
+        ], capture_output=True, timeout=5)
+    except Exception:
+        pass
 
 
 def main():

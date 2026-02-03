@@ -7,15 +7,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-
-# Default Obsidian path
-OBSIDIAN_PATH = Path.home() / "obsidian" / "learning" / "english"
+from config import get_obsidian_dir
 
 
 def get_obsidian_path() -> Path:
     """Get the Obsidian path, creating if needed."""
-    OBSIDIAN_PATH.mkdir(parents=True, exist_ok=True)
-    return OBSIDIAN_PATH
+    path = get_obsidian_dir()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def get_daily_file_path(target_date: Optional[str] = None) -> Path:

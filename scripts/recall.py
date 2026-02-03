@@ -5,64 +5,82 @@ Retries failed grammar checks from the retry queue.
 """
 
 import json
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 # Add lib to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "lib"))
 
+from config import get_data_dir, get_obsidian_dir, is_notification_enabled
 from language_detect import should_check_grammar
 from claude_api import analyze_grammar
 from obsidian import save_correction as save_to_obsidian
 from db import save_correction as save_to_db
 
-# Retry queue file path
-RETRY_QUEUE_PATH = Path.home() / ".english-buddy" / "retry_queue.json"
-# Last successful check file path
-LAST_CHECK_PATH = Path.home() / ".english-buddy" / "last_check.json"
+
+def get_retry_queue_path() -> Path:
+    """Get the retry queue file path from config."""
+    return get_data_dir() / "retry_queue.json"
+
+
+def get_last_check_path() -> Path:
+    """Get the last check file path from config."""
+    return get_data_dir() / "last_check.json"
 
 
 def send_notification(title: str, message: str):
     """Send macOS system notification using terminal-notifier."""
-    try:
-        # Get today's Obsidian file path for click action
-        date_str = datetime.now().strftime("%Y-%m-%d")
-        obsidian_file = Path.home() / "obsidian" / "learning" / "english" / f"{date_str}.md"
+    # Check if notifications are enabled in config
+    if not is_notification_enabled():
+        return
 
-        subprocess.run(
-            [
-                '/opt/homebrew/bin/terminal-notifier',
-                '-title', title,
-                '-message', message,
-                '-group', 'english-buddy-recall',
-                '-sender', 'com.apple.Terminal',
-                '-execute', f"open '{obsidian_file}'"
-            ],
-            capture_output=True,
-            timeout=5
-        )
-    except FileNotFoundError:
-        # terminal-notifier not installed, try osascript
+    # Find terminal-notifier in PATH
+    terminal_notifier = shutil.which('terminal-notifier')
+
+    if terminal_notifier:
         try:
-            subprocess.run([
-                'osascript', '-e',
-                f'display notification "{message}" with title "{title}"'
-            ], capture_output=True, timeout=5)
-        except Exception:
-            pass
-    except Exception as e:
-        print(f"Notification error: {e}", file=sys.stderr)
+            # Get today's Obsidian file path for click action
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            obsidian_file = get_obsidian_dir() / f"{date_str}.md"
+
+            subprocess.run(
+                [
+                    terminal_notifier,
+                    '-title', title,
+                    '-message', message,
+                    '-group', 'english-buddy-recall',
+                    '-sender', 'com.apple.Terminal',
+                    '-execute', f"open '{obsidian_file}'"
+                ],
+                capture_output=True,
+                timeout=5
+            )
+            return
+        except Exception as e:
+            print(f"Notification error: {e}", file=sys.stderr)
+
+    # Fallback to osascript
+    try:
+        subprocess.run([
+            'osascript', '-e',
+            f'display notification "{message}" with title "{title}"'
+        ], capture_output=True, timeout=5)
+    except Exception:
+        pass
 
 
-def load_last_check() -> dict | None:
+def load_last_check() -> Optional[dict]:
     """Load the last successful check."""
-    if not LAST_CHECK_PATH.exists():
+    last_check_path = get_last_check_path()
+    if not last_check_path.exists():
         return None
     try:
-        with open(LAST_CHECK_PATH, 'r') as f:
+        with open(last_check_path, 'r') as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError):
         return None
@@ -70,10 +88,11 @@ def load_last_check() -> dict | None:
 
 def load_retry_queue() -> list:
     """Load the retry queue from file."""
-    if not RETRY_QUEUE_PATH.exists():
+    queue_path = get_retry_queue_path()
+    if not queue_path.exists():
         return []
     try:
-        with open(RETRY_QUEUE_PATH, 'r') as f:
+        with open(queue_path, 'r') as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError):
         return []
@@ -81,8 +100,9 @@ def load_retry_queue() -> list:
 
 def save_retry_queue(queue: list):
     """Save the retry queue to file."""
-    RETRY_QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(RETRY_QUEUE_PATH, 'w') as f:
+    queue_path = get_retry_queue_path()
+    queue_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(queue_path, 'w') as f:
         json.dump(queue, f, indent=2, ensure_ascii=False)
 
 
